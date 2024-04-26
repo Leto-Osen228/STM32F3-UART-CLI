@@ -10,6 +10,11 @@
 
 USART::USART(USART_TypeDef *usart) :
 		_usart(usart) {
+	const osMutexAttr_t mutexAttr = {
+		    .name = "UART_TX",          	// Имя мьютекса
+		    .attr_bits = osMutexRecursive 	// Используем приоритетное наследование
+		};
+	_tx_mutex = osMutexNew(&mutexAttr);
 }
 
 USART::~USART() {
@@ -52,6 +57,7 @@ void USART::handler() {
 }
 
 void USART::write(const char *buf) {
+	osMutexAcquire(_tx_mutex, osWaitForever);
 	while (*buf) {
 //		while ((_usart->ISR & USART_ISR_TXE) == 0);
 //		_usart->TDR = *buf++;
@@ -59,6 +65,7 @@ void USART::write(const char *buf) {
 	}
 	if (_tx.len())
 		_usart->CR1 |= USART_CR1_TXEIE;
+	osMutexRelease(_tx_mutex);
 }
 
 void USART::read(char *buf) {

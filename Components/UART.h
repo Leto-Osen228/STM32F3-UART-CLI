@@ -13,6 +13,7 @@
 #include <string>
 
 #include "stm32f3xx.h"
+#include "cmsis_os.h"
 
 #include "Buffer.h"
 
@@ -31,6 +32,8 @@ public:
 
 private:
 	USART_TypeDef* _usart;
+
+	osMutexId_t _tx_mutex;
 
 	Buffer<char, 512> _tx;
 	Buffer<char, 512> _rx;
