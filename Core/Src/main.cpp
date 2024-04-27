@@ -22,7 +22,9 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include <map>
+#include <string>
+
+#include "CLI.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -48,8 +50,24 @@ const osThreadAttr_t defaultTask_attributes = {
   .stack_size = 128 * 4,
   .priority = (osPriority_t) osPriorityNormal,
 };
+
+osThreadId_t cliTaskHandle;
+const osThreadAttr_t cliTask_attributes = {
+  .name = "cliTask",
+  .stack_size = 128 * 4,
+  .priority = (osPriority_t) osPriorityHigh,
+};
+
 /* USER CODE BEGIN PV */
-GPIO::Pin led(GPIOE, 10);
+GPIO::Pin ledA(GPIOE, 9);
+GPIO::Pin ledB(GPIOE, 10);
+GPIO::Pin ledC(GPIOE, 11);
+GPIO::Pin ledD(GPIOE, 8);
+GPIO::Pin ledE(GPIOE, 13);
+GPIO::Pin ledF(GPIOE, 14);
+GPIO::Pin ledG(GPIOE, 12);
+GPIO::Pin ledH(GPIOE, 15);
+
 USART uart(USART1);
 /* USER CODE END PV */
 
@@ -57,7 +75,8 @@ USART uart(USART1);
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_USART1_UART_Init(void);
-void StartDefaultTask(void *argument);
+void defaultTask(void *argument);
+void cliTask(void *argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -102,7 +121,8 @@ int main(void)
 
   osKernelInitialize();
 
-  defaultTaskHandle = osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
+  defaultTaskHandle = osThreadNew(defaultTask, NULL, &defaultTask_attributes);
+  cliTaskHandle = osThreadNew(cliTask, NULL, &cliTask_attributes);
 
   osKernelStart();
   while (1){}
@@ -253,19 +273,34 @@ static void MX_GPIO_Init(void)
   * @retval None
   */
 /* USER CODE END Header_StartDefaultTask */
-void StartDefaultTask(void *argument)
+void defaultTask(void *argument)
 {
   /* USER CODE BEGIN 5 */
   /* Infinite loop */
   for(;;)
   {
-	uart.write("blink");
-	led.toggle();
+	uart.write("blink\n\r");
+	ledB.toggle();
     osDelay(500);
   }
   /* USER CODE END 5 */
 }
 
+void cliTask(void *argument)
+{
+  /* USER CODE BEGIN 5 */
+	CLI cli;
+	cli.addCommand("led", [](std::string arg){
+		ledC.toggle();
+		return "OK";
+	});
+  /* Infinite loop */
+  for(;;)
+  {
+	cli.handler(uart.readline());
+  }
+  /* USER CODE END 5 */
+}
 
 /**
   * @brief  This function is executed in case of error occurrence.

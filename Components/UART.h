@@ -14,6 +14,8 @@
 
 #include "stm32f3xx.h"
 #include "cmsis_os.h"
+#include "task.h"
+#include "semphr.h"
 
 #include "Buffer.h"
 
@@ -34,6 +36,8 @@ private:
 	USART_TypeDef* _usart;
 
 	osMutexId_t _tx_mutex;
+	SemaphoreHandle_t _rx_line_semphr;
+	BaseType_t xHigherPriorityTaskWoken = pdFALSE;
 
 	Buffer<char, 512> _tx;
 	Buffer<char, 512> _rx;

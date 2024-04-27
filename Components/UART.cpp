@@ -6,15 +6,14 @@
  */
 
 #include "UART.h"
-#include "cmsis_os2.h"
 
 USART::USART(USART_TypeDef *usart) :
 		_usart(usart) {
 	const osMutexAttr_t mutexAttr = {
 		    .name = "UART_TX",          	// Имя мьютекса
-		    .attr_bits = osMutexRecursive 	// Используем приоритетное наследование
 		};
 	_tx_mutex = osMutexNew(&mutexAttr);
+	_rx_line_semphr = xQueueCreateCountingSemaphore(10, 0);
 }
 
 USART::~USART() {
@@ -24,7 +23,7 @@ USART::~USART() {
 void USART::init() {
 	_usart->CR1 |= USART_CR1_IDLEIE;
 	_usart->CR1 |= USART_CR1_RXNEIE;
-	//_usart->CR1 |= USART_CR1_TXEIE;
+	_usart->CR1 |= USART_CR1_TXEIE;
 	_usart->CR1 |= USART_CR1_TCIE;
 }
 
@@ -35,6 +34,9 @@ void USART::handler() {
 	if (_usart->ISR & USART_ISR_IDLE) {
 		_usart->ICR |= USART_ICR_IDLECF;
 		_rx.add('\n');
+		xSemaphoreGiveFromISR(_rx_line_semphr, &xHigherPriorityTaskWoken);
+		portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+		xHigherPriorityTaskWoken = pdFALSE;
 	}
 
 	if (_usart->ISR & USART_ISR_TXE && _tx.len())
@@ -53,11 +55,11 @@ void USART::handler() {
 
 	if (_usart->ISR & USART_ISR_ORE)
 		_usart->ICR |= USART_ICR_ORECF;
-
 }
 
 void USART::write(const char *buf) {
-	osMutexAcquire(_tx_mutex, osWaitForever);
+	//osMutexAcquire(_tx_mutex, osWaitForever);
+	taskENTER_CRITICAL();
 	while (*buf) {
 //		while ((_usart->ISR & USART_ISR_TXE) == 0);
 //		_usart->TDR = *buf++;
@@ -65,7 +67,8 @@ void USART::write(const char *buf) {
 	}
 	if (_tx.len())
 		_usart->CR1 |= USART_CR1_TXEIE;
-	osMutexRelease(_tx_mutex);
+	taskEXIT_CRITICAL();
+	//osMutexRelease(_tx_mutex);
 }
 
 void USART::read(char *buf) {
@@ -75,6 +78,7 @@ void USART::read(char *buf) {
 }
 
 std::string USART::readline() {
+	xQueueSemaphoreTake(_rx_line_semphr, portMAX_DELAY);
 	char c;
 	std::string line;
 	while (c != '\n') {
